@@ -39,7 +39,7 @@ static vk::UniqueInstance createInstance(const InitParams& params)
   // Compatibility layer for devices that do not implement this extension natively.
   // Sync2 provides potential for driver optimization and a saner programmer API,
   // but is able to be translated into old synchronization calls if needed.
-  layers.push_back("VK_LAYER_KHRONOS_synchronization2");
+  // layers.push_back("VK_LAYER_KHRONOS_synchronization2");
 
   vk::InstanceCreateInfo createInfo{
     .pApplicationInfo = &appInfo,
