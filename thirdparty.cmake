@@ -1,6 +1,39 @@
 cmake_minimum_required(VERSION 3.25)
 
 
+# Finds suitable git tag version for remote repository located at
+# `${REPO_URL}.
+#
+# 1. Uses `git ls-remote` to find all the repository tags;
+#
+# 2. Finds the tags starting with the given prefix `${TAG_PREFIX}`
+#    (this prefix may be a regular expression);
+#
+# 3. Treats everything after the prefix as a version;
+#
+# 4. Finds the smallest of the versions greater than or equal to the
+#    given version `${MIN_VERSION}`;
+#
+# 5. Suppose this version is `${VERSION}`. Then, it returns the tag
+#    that "had" this version in it.
+#
+# Sets variables `${OUT_STATUS_VARIABLE}` and `${OUT_TAG_VARIABLE}` as
+# a result. `${OUT_STATUS_VARIABLE}` will hold the boolean value
+# indicating whether the operation succeeded or not, and
+# `${OUT_TAG_VARIABLE}` will hold the returned tag (or, on failure, an
+# empty string).
+#
+# The functions returns with an error if:
+#
+# 1. `git` is not found;
+#
+# 2. `git ls-remote` fails;
+#
+# 3. One of the versions presented in the repository does not have the
+#    correct format;
+#
+# 4. All the versions presented in the repository are less than the
+#    given minimum version.
 function (find_suitable_git_version_tag
     REPO_URL TAG_PREFIX MIN_VERSION
     OUT_STATUS_VARIABLE OUT_TAG_VARIABLE
@@ -25,27 +58,37 @@ function (find_suitable_git_version_tag
     return()
   endif()
 
-  string(REGEX REPLACE
-    "[a-f0-9]+\trefs/tags/${TAG_PREFIX}([^\r\n]+)\r?\n" "\\1\n"
-    VERSION_LIST "${TAG_LIST}")
-  string(REGEX REPLACE
-    "[a-f0-9]+\trefs/tags/([^\r\n]+)\r?\n" ""
-    VERSION_LIST "${VERSION_LIST}")
-  string(REPLACE "\n" ";"
-    VERSION_LIST "${VERSION_LIST}")
+  # Constructing a line list
+  string(REGEX REPLACE "\r?\n" ";"
+    TAG_LIST "${TAG_LIST}")
 
+  set(EXTRACT_TAG_REGEX "^[a-f0-9]+\trefs/tags/([^\r\n]+)$")
 
+  set(BEST_TAG "")
   set(BEST_VERSION "")
-  foreach (VERSION IN LISTS VERSION_LIST)
-    if (
-	(NOT "${VERSION}" STREQUAL "") AND
-	("${VERSION}" VERSION_GREATER_EQUAL "${MIN_VERSION}")
-      )
-      if (
-	  ("${BEST_VERSION}" STREQUAL "") OR
-	  ("${VERSION}" VERSION_LESS "${BEST_VERSION}")
-	)
-	set(BEST_VERSION "${VERSION}")
+  foreach (TAG IN LISTS TAG_LIST)
+    # Extracting the tag
+    string(REGEX REPLACE "${EXTRACT_TAG_REGEX}" "\\1" TAG "${TAG}")
+
+    # Check if the tag starts with the given prefix. Note that the
+    # given prefix may be a regular expression
+    if ("${TAG}" MATCHES "^${TAG_PREFIX}(.+)")
+      set(VERSION "${CMAKE_MATCH_${CMAKE_MATCH_COUNT}}")
+
+      if ("${VERSION}" MATCHES "([0-9]+)(\\.([0-9]+)(\\.([0-9]+)(\\.([0-9]+))?)?)?")
+	# This is indeed a version
+
+	if (("${VERSION}" VERSION_GREATER_EQUAL "${MIN_VERSION}") AND
+	    (("${BEST_VERSION}" STREQUAL "") OR
+	      ("${VERSION}" VERSION_LESS "${BEST_VERSION}")))
+	  set(BEST_TAG "${TAG}")
+	  set(BEST_VERSION "${VERSION}")
+	endif()
+      else()
+	# This is not a version and we do not know what to with it
+	set(${OUT_STATUS_VARIABLE} FALSE PARENT_SCOPE)
+	set(${OUT_TAG_VARIABLE} "" PARENT_SCOPE)
+	return()
       endif()
     endif()
   endforeach()
@@ -57,7 +100,7 @@ function (find_suitable_git_version_tag
   endif()
 
   set(${OUT_STATUS_VARIABLE} TRUE PARENT_SCOPE)
-  set(${OUT_TAG_VARIABLE} "${TAG_PREFIX}${BEST_VERSION}" PARENT_SCOPE)
+  set(${OUT_TAG_VARIABLE} "${BEST_TAG}" PARENT_SCOPE)
 endfunction()
 
 
@@ -86,18 +129,26 @@ set_property(TARGET VulkanMemoryAllocator PROPERTY SYSTEM TRUE)
 # four-component versions (major, minor, patch and tweak). Therefore,
 # the tag selection has to be more elaborate
 
-find_suitable_git_version_tag(
-  https://github.com/KhronosGroup/SPIRV-Reflect
-  vulkan-sdk- ${Vulkan_VERSION}
-  SPIRV_REFLECT_GIT_TAG_STATUS
-  SPIRV_REFLECT_GIT_TAG
+option(SPIRV_REFLECT_VERSION_SMART_SEARCH
+  "Use more elaborate search for the SPIRV-Reflect git tag" OFF
 )
 
-if (NOT ${SPIRV_REFLECT_GIT_TAG_STATUS})
-  message(
-    WARNING
-    "Could not find a suitable git tag for SPIRV-Reflect. Using the exact Vulkan version")
-  set(SPIRV_REFLECT_GIT_TAG ${Vulkan_VERSION})
+if (SPIRV_REFLECT_VERSION_SMART_SEARCH)
+  find_suitable_git_version_tag(
+    https://github.com/KhronosGroup/SPIRV-Reflect
+    "(vulkan-)?sdk-" "${Vulkan_VERSION}"
+    SPIRV_REFLECT_GIT_TAG_STATUS
+    SPIRV_REFLECT_GIT_TAG
+  )
+
+  if (NOT ${SPIRV_REFLECT_GIT_TAG_STATUS})
+    message(
+      WARNING
+      "Could not find a suitable git tag for SPIRV-Reflect although the search was requested. Using the exact Vulkan version")
+    set(SPIRV_REFLECT_GIT_TAG "vulkan-sdk-${Vulkan_VERSION}")
+  endif()
+else()
+  set(SPIRV_REFLECT_GIT_TAG "vulkan-sdk-${Vulkan_VERSION}")
 endif()
 
 CPMAddPackage(
