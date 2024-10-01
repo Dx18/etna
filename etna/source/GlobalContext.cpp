@@ -35,15 +35,22 @@ static vk::UniqueInstance createInstance(const InitParams& params)
     params.instanceExtensions.begin(), params.instanceExtensions.end());
   extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 
-  std::vector<const char*> layers(VALIDATION_LAYERS.begin(), VALIDATION_LAYERS.end());
-  // Compatibility layer for devices that do not implement this extension natively.
-  // Sync2 provides potential for driver optimization and a saner programmer API,
-  // but is able to be translated into old synchronization calls if needed.
-  // layers.push_back("VK_LAYER_KHRONOS_synchronization2");
+  // NOTE: Extension for the vulkan loader to list non-conformant implementations, such as
+  // for example MoltenVK on Apple devices.
+#if defined(__APPLE__)
+  extensions.push_back(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
+#endif
+
+  std::vector<const char*> layers(VULKAN_LAYERS.begin(), VULKAN_LAYERS.end());
 
   vk::InstanceCreateInfo createInfo{
     .pApplicationInfo = &appInfo,
   };
+
+  // NOTE: Enable non-conformant Vulkan implementations.
+#if defined(__APPLE__)
+  createInfo.setFlags(vk::InstanceCreateFlagBits::eEnumeratePortabilityKHR);
+#endif
 
   createInfo.setPEnabledLayerNames(layers);
   createInfo.setPEnabledExtensionNames(extensions);
@@ -51,14 +58,23 @@ static vk::UniqueInstance createInstance(const InitParams& params)
   return unwrap_vk_result(vk::createInstanceUnique(createInfo));
 }
 
+template <std::size_t SIZE>
+static std::string_view safe_view_of_array(const vk::ArrayWrapper1D<char, SIZE>& array)
+{
+  // Paranoic strlen
+  const std::size_t length =
+    static_cast<const char*>(std::memchr(array.data(), '\0', SIZE)) - array.data();
+  return std::string_view{array.data(), length};
+}
+
 static bool checkPhysicalDeviceSupportsExtensions(
   vk::PhysicalDevice pdevice, std::span<char const* const> extensions)
 {
   std::vector availableExtensions = unwrap_vk_result(pdevice.enumerateDeviceExtensionProperties());
 
-  std::unordered_set requestedExtensions(extensions.begin(), extensions.end());
+  std::unordered_set<std::string_view> requestedExtensions(extensions.begin(), extensions.end());
   for (const auto& ext : availableExtensions)
-    requestedExtensions.erase(ext.extensionName);
+    requestedExtensions.erase(safe_view_of_array(ext.extensionName));
 
   return requestedExtensions.empty();
 }
@@ -183,11 +199,19 @@ static vk::UniqueDevice createDevice(
 
   std::vector<char const*> deviceExtensions(
     params.deviceExtensions.begin(), params.deviceExtensions.end());
+
+  // NOTE: These extensions are needed on MoltenVK to be set explicitly due to
+  // it not fully supporting Vulkan 1.3 yet.
+#if defined(__APPLE__)
   deviceExtensions.push_back(VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME);
-#ifdef ETNA_SET_VULKAN_DEBUG_NAMES
-  deviceExtensions.push_back(VK_EXT_DEBUG_MARKER_EXTENSION_NAME);
+  deviceExtensions.push_back(VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME);
+  deviceExtensions.push_back(VK_KHR_COPY_COMMANDS_2_EXTENSION_NAME);
 #endif
 
+  // NOTE: Enable non-conformant Vulkan implementations.
+#if defined(__APPLE__)
+  deviceExtensions.push_back(VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME);
+#endif
 
   // NOTE: original design of PhysicalDeviceFeatures did not
   // support extensions, so they had to use a trick to achieve
@@ -247,9 +271,8 @@ GlobalContext::GlobalContext(const InitParams& params)
   // 1) load version-independent symbols
   // 2) load device-independent symbols
   // 3) load device-specific symbols
-  vk::DynamicLoader dl;
   VULKAN_HPP_DEFAULT_DISPATCHER.init(
-    dl.getProcAddress<PFN_vkGetInstanceProcAddr>("vkGetInstanceProcAddr"));
+    vkDynamicLoader.getProcAddress<PFN_vkGetInstanceProcAddr>("vkGetInstanceProcAddr"));
 
   vkInstance = createInstance(params);
   VULKAN_HPP_DEFAULT_DISPATCHER.init(vkInstance.get());

@@ -63,6 +63,9 @@ public:
 
   vk::ImageAspectFlags getAspectMaskByFormat() const;
 
+  vk::Extent3D getExtent() const { return extent; }
+  vk::Format getFormat() const { return format; }
+
 private:
   struct ViewParamsHasher
   {
@@ -88,6 +91,8 @@ private:
   VmaAllocation allocation{};
   vk::Image image{};
   vk::Format format;
+  std::string name;
+  vk::Extent3D extent;
 };
 
 } // namespace etna

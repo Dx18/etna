@@ -15,6 +15,12 @@
 namespace etna
 {
 
+enum class ValidationLevel : uint32_t
+{
+  eBasic,
+  eExtensive
+};
+
 struct InitParams
 {
   /// Can be anything
