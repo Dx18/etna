@@ -10,11 +10,13 @@ namespace etna
 Image::Image(VmaAllocator alloc, CreateInfo info)
   : allocator{alloc}
   , format{info.format}
+  , name{info.name}
+  , extent{info.extent}
 {
   vk::ImageCreateInfo imageInfo{
     .imageType = vk::ImageType::e2D,
     .format = format,
-    .extent = info.extent,
+    .extent = extent,
     .mipLevels = static_cast<uint32_t>(info.mipLevels),
     .arrayLayers = static_cast<uint32_t>(info.layers),
     .samples = info.samples,
@@ -49,7 +51,7 @@ Image::Image(VmaAllocator alloc, CreateInfo info)
     "Error {} occurred while trying to allocate an etna::Image!",
     vk::to_string(static_cast<vk::Result>(retcode)));
   image = vk::Image(img);
-  etna::set_debug_name(image, info.name.data());
+  etna::set_debug_name(image, name.c_str());
 }
 
 void Image::swap(Image& other)
@@ -58,6 +60,8 @@ void Image::swap(Image& other)
   std::swap(allocation, other.allocation);
   std::swap(image, other.image);
   std::swap(format, other.format);
+  std::swap(name, other.name);
+  std::swap(extent, other.extent);
 }
 
 Image::Image(Image&& other) noexcept
@@ -134,6 +138,7 @@ vk::ImageView Image::getView(Image::ViewParams params) const
         .layerCount = 1,
       }};
     auto view = unwrap_vk_result(etna::get_context().getDevice().createImageViewUnique(viewInfo));
+    set_debug_name(view.get(), name.c_str());
     it = views.emplace(params, std::move(view)).first;
   }
 
