@@ -116,6 +116,25 @@ void set_state(
   vk::ImageAspectFlags aspect_flags);
 
 /**
+ * \brief Sets the state of an image before using it in a certain way.
+ * Note that Etna calls this automatically in some cases.
+ *
+ * \param com_buffer The command buffer being recorded.
+ * \param image The image to set the state for.
+ * \param pipeline_stage_flag Where will the image be used?
+ * \param access_flags How will it be used?
+ * \param layout What layout do we want it to be in?
+ * \param aspect_flags Which part of the image will be used?
+ */
+void set_state(
+  vk::CommandBuffer com_buffer,
+  vk::Image image,
+  vk::PipelineStageFlagBits2 pipeline_stage_flag,
+  vk::AccessFlags2 access_flags,
+  vk::ImageLayout layout,
+  vk::ImageSubresourceRange subresource_range);
+
+/**
  * \brief Flushes all barriers resulting from set_state calls.
  * \note Remember to call this before any draw/dispatch/transfer commands!
  *

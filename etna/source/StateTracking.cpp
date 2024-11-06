@@ -12,6 +12,7 @@ void ResourceStates::setExternalTextureState(
   vk::AccessFlags2 access_flags,
   vk::ImageLayout layout)
 {
+  // TODO Set `subresourceRange`
   HandleType resHandle = std::bit_cast<HandleType>(static_cast<VkImage>(image));
   currentStates[resHandle] = TextureState{
     .piplineStageFlags = pipeline_stage_flag,
@@ -28,6 +29,29 @@ void ResourceStates::setTextureState(
   vk::AccessFlags2 access_flags,
   vk::ImageLayout layout,
   vk::ImageAspectFlags aspect_flags)
+{
+  setTextureState(
+    com_buffer,
+    image,
+    pipeline_stage_flag,
+    access_flags,
+    layout,
+    vk::ImageSubresourceRange{
+      .aspectMask = aspect_flags,
+      .baseMipLevel = 0,
+      .levelCount = 1,
+      .baseArrayLayer = 0,
+      .layerCount = 1,
+    });
+}
+
+void ResourceStates::setTextureState(
+  vk::CommandBuffer com_buffer,
+  vk::Image image,
+  vk::PipelineStageFlags2 pipeline_stage_flag,
+  vk::AccessFlags2 access_flags,
+  vk::ImageLayout layout,
+  vk::ImageSubresourceRange subresource_range)
 {
   HandleType resHandle = std::bit_cast<HandleType>(static_cast<VkImage>(image));
   if (currentStates.count(resHandle) == 0)
@@ -53,14 +77,7 @@ void ResourceStates::setTextureState(
     .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
     .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
     .image = image,
-    .subresourceRange =
-      {
-        .aspectMask = aspect_flags,
-        .baseMipLevel = 0,
-        .levelCount = 1,
-        .baseArrayLayer = 0,
-        .layerCount = 1,
-      },
+    .subresourceRange = subresource_range,
   });
   oldState = newState;
 }
@@ -95,7 +112,8 @@ void ResourceStates::setDepthStencilTarget(
   setTextureState(
     com_buffer,
     image,
-    vk::PipelineStageFlagBits2::eEarlyFragmentTests | vk::PipelineStageFlagBits2::eLateFragmentTests,
+    vk::PipelineStageFlagBits2::eEarlyFragmentTests |
+      vk::PipelineStageFlagBits2::eLateFragmentTests,
     vk::AccessFlagBits2::eDepthStencilAttachmentWrite,
     vk::ImageLayout::eDepthStencilAttachmentOptimal,
     aspect_flags);

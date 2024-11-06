@@ -18,7 +18,15 @@ class ResourceStates
     vk::PipelineStageFlags2 piplineStageFlags = {};
     vk::AccessFlags2 accessFlags = {};
     vk::ImageLayout layout = vk::ImageLayout::eUndefined;
+    vk::ImageSubresourceRange subresourceRange = {
+      .aspectMask = {},
+      .baseMipLevel = 0,
+      .levelCount = 1,
+      .baseArrayLayer = 0,
+      .layerCount = 1,
+    };
     vk::CommandBuffer owner = {};
+
     bool operator==(const TextureState& other) const = default;
   };
   using State = std::variant<TextureState>; // TODO: Add buffers
@@ -39,6 +47,13 @@ public:
     vk::AccessFlags2 access_flags,
     vk::ImageLayout layout,
     vk::ImageAspectFlags aspect_flags);
+  void setTextureState(
+    vk::CommandBuffer com_buffer,
+    vk::Image image,
+    vk::PipelineStageFlags2 pipeline_stage_flag,
+    vk::AccessFlags2 access_flags,
+    vk::ImageLayout layout,
+    vk::ImageSubresourceRange subresource_range);
 
   void setColorTarget(vk::CommandBuffer com_buffer, vk::Image image);
   void setDepthStencilTarget(
