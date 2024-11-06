@@ -19,7 +19,7 @@ public:
 
   struct CreateInfo
   {
-    vk::ImageCreateFlags flags;
+    vk::ImageCreateFlags flags = {};
     vk::Extent3D extent;
     std::string_view name;
     // NOTE: this format is the default for TEXTURE ASSETS,
