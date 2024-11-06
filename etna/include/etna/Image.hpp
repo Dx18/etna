@@ -19,6 +19,7 @@ public:
 
   struct CreateInfo
   {
+    vk::ImageCreateFlags flags;
     vk::Extent3D extent;
     std::string_view name;
     // NOTE: this format is the default for TEXTURE ASSETS,
@@ -50,16 +51,21 @@ public:
 
   struct ViewParams
   {
+    std::optional<vk::ImageViewType> viewType = {};
+
     uint32_t baseMip = 0;
     uint32_t levelCount = 1;
+    uint32_t baseArrayLayer = 0;
+    uint32_t layerCount = 1;
+
     std::optional<vk::ImageAspectFlagBits> aspectMask{};
 
     bool operator==(const ViewParams& b) const = default;
   };
   vk::ImageView getView(ViewParams params) const;
 
-  ImageBinding genBinding(
-    vk::Sampler sampler, vk::ImageLayout layout, ViewParams params = {0, 1, {}}) const;
+  ImageBinding genBinding(vk::Sampler sampler, vk::ImageLayout layout) const;
+  ImageBinding genBinding(vk::Sampler sampler, vk::ImageLayout layout, ViewParams params) const;
 
   vk::ImageAspectFlags getAspectMaskByFormat() const;
 
@@ -71,16 +77,23 @@ private:
   {
     size_t operator()(ViewParams params) const
     {
-      uint32_t hash = 0;
-      hashPack(hash, params.baseMip, params.levelCount);
+      size_t hash = 0;
+      hashPack(
+        hash,
+        params.viewType,
+        params.baseMip,
+        params.levelCount,
+        params.baseArrayLayer,
+        params.layerCount,
+        params.aspectMask);
       return hash;
     }
 
   private:
     template <typename HashT, typename... HashTs>
-    inline void hashPack(uint32_t& hash, const HashT& first, HashTs&&... other) const
+    inline void hashPack(size_t& hash, const HashT& first, HashTs&&... other) const
     {
-      auto hasher = std::hash<uint32_t>();
+      auto hasher = std::hash<HashT>();
       hash ^= hasher(first) + 0x9e3779b9 + (hash << 6) + (hash >> 2);
       (hashPack(hash, std::forward<HashTs>(other)), ...);
     }
