@@ -18,13 +18,6 @@ class ResourceStates
     vk::PipelineStageFlags2 piplineStageFlags = {};
     vk::AccessFlags2 accessFlags = {};
     vk::ImageLayout layout = vk::ImageLayout::eUndefined;
-    vk::ImageSubresourceRange subresourceRange = {
-      .aspectMask = {},
-      .baseMipLevel = 0,
-      .levelCount = 1,
-      .baseArrayLayer = 0,
-      .layerCount = 1,
-    };
     vk::CommandBuffer owner = {};
 
     bool operator==(const TextureState& other) const = default;
