@@ -52,7 +52,6 @@ struct DescriptorSet
     , bindings{std::move(resources)}
     , command_buffer{cmd_buffer}
   {
-    processBarriers();
   }
 
   bool isValid() const;
@@ -64,8 +63,6 @@ struct DescriptorSet
   uint64_t getGen() const { return generation; }
 
   const std::vector<Binding>& getBindings() const { return bindings; }
-
-  void processBarriers() const;
 
 private:
   uint64_t generation{};

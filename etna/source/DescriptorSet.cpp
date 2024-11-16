@@ -231,24 +231,4 @@ constexpr static vk::AccessFlagBits2 descriptor_type_to_access_flag(
   return vk::AccessFlagBits2::eNone;
 }
 
-void DescriptorSet::processBarriers() const
-{
-  auto& layoutInfo = get_context().getDescriptorSetLayouts().getLayoutInfo(layoutId);
-  for (auto& binding : bindings)
-  {
-    if (std::get_if<ImageBinding>(&binding.resources) == nullptr)
-      continue; // Add processing for buffer here if you need.
-
-    auto& bindingInfo = layoutInfo.getBinding(binding.binding);
-    const ImageBinding& imgData = std::get<ImageBinding>(binding.resources);
-    etna::set_state(
-      command_buffer,
-      imgData.image.get(),
-      shader_stage_to_pipeline_stage(bindingInfo.stageFlags),
-      descriptor_type_to_access_flag(bindingInfo.descriptorType),
-      imgData.descriptor_info.imageLayout,
-      imgData.image.getAspectMaskByFormat());
-  }
-}
-
 } // namespace etna
